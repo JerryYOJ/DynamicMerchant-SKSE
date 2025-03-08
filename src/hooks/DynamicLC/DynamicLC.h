@@ -2,6 +2,7 @@ class DynamicLC {
 
 public:
     static void Install();
+    static void InstallLate();
 
     static std::unordered_map<RE::FormID, float>levelMap;
 protected:

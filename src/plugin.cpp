@@ -25,17 +25,19 @@ SKSEPluginLoad(const SKSE::LoadInterface *skse) {
     Hooks::Install();
     Scaleform::Install();
 
-    //SKSE::GetMessagingInterface()->RegisterListener([](SKSE::MessagingInterface::Message* message) {
-    //    if (message->type == SKSE::MessagingInterface::kDataLoaded) {
-    //        RE::ConsoleLog::GetSingleton()->Print("BetterSkyrim Loaded!");
-    //    }
-    //    else if (message->type == SKSE::MessagingInterface::kPostLoad) {
-    //        
-    //    }
-    //    else if (message->type == SKSE::MessagingInterface::kPostLoadGame) {
-    //        
-    //    }
-    //    });
+    SKSE::GetMessagingInterface()->RegisterListener([](SKSE::MessagingInterface::Message* message) {
+        if (message->type == SKSE::MessagingInterface::kDataLoaded) {
+            
+            Hooks::InstallLate();
+
+        }
+        else if (message->type == SKSE::MessagingInterface::kPostLoad) {
+            
+        }
+        else if (message->type == SKSE::MessagingInterface::kPostLoadGame) {
+            
+        }
+        });
 
     return true;
 }

@@ -1,15 +1,40 @@
 #include "DynamicLC.h"
 
+#include "../../configmanager.h"
+
 #include <xbyak.h>
 #include <random>
 
 std::unordered_map<RE::FormID, float> DynamicLC::levelMap;
+
+static float MinNumMult = 0, MaxNumMult = 0, MinLevelMult = 0, MaxLevelMult = 0;
 
 void DynamicLC::Install()
 {
 	REL::Relocation<std::uintptr_t> hookPoint{ RELOCATION_ID(15889, 16129), 0x217 };
 	auto& t = SKSE::GetTrampoline();
 	_CalculateCurrentFormList = t.write_call<5>(hookPoint.address(), CalculateCurrentFormList);
+
+
+	auto&& cfg = ConfigManager::getInstance();
+
+	cfg.HasKey("MinNumMult", "1.0");
+	cfg.HasKey("MaxNumMult", "5.0");
+	cfg.HasKey("MinLevelMult", "1.0");
+	cfg.HasKey("MaxLevelMult", "3.0");
+
+	MinNumMult = std::stof(cfg.GetKey("MinNumMult"));
+	MaxNumMult = std::stof(cfg.GetKey("MaxNumMult"));
+	MinLevelMult = std::stof(cfg.GetKey("MinLevelMult"));
+	MaxLevelMult = std::stof(cfg.GetKey("MaxLevelMult"));
+
+
+	logger::info("[LoadConfig] minn:{} maxn:{} minl:{} maxl:{}", MinNumMult, MaxNumMult, MinLevelMult, MaxLevelMult);
+}
+
+void DynamicLC::InstallLate()
+{
+	
 }
 
 void DynamicLC::CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t a_level, std::int16_t a_count, RE::BSScrapArray<RE::CALCED_OBJECT>& a_calcedObjects, std::uint32_t a_arg5, bool a_usePlayerLevel)
@@ -34,8 +59,8 @@ void DynamicLC::CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t
 	if (std::string(GetFormEditorID(id)).contains("Merchant")) {
 		std::random_device rd;
 		std::mt19937 gen(rd());
-		std::uniform_int_distribution<int> numMult(1, 5);
-		std::uniform_real_distribution<float> levelMult(1.0, 3.0);
+		std::uniform_int_distribution<int> numMult(MinNumMult, MaxNumMult);
+		std::uniform_real_distribution<float> levelMult(MinLevelMult, MaxLevelMult);
 		
 		int num = numMult(gen);
 		float level = levelMult(gen);
@@ -45,7 +70,7 @@ void DynamicLC::CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t
 		if(a_usePlayerLevel) _CalculateCurrentFormList(thiz, RE::PlayerCharacter::GetSingleton()->GetLevel()* level, a_count* num, a_calcedObjects, a_arg5, false);
 		else _CalculateCurrentFormList(thiz, a_level * level, a_count * num, a_calcedObjects, a_arg5, false);
 
-		logger::info("{}({}) Generated with level:{} count:{}", caller_inv->owner->formID, caller_inv->owner->GetName(), a_level* level, a_count* num);
+		logger::info("0x{:X}({}) Generated with level:{} count:{}", id, GetFormEditorID(id), a_level* level, a_count* num);
 		
 		return;
 	}
