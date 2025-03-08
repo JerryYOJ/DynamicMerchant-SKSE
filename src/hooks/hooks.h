@@ -14,7 +14,7 @@ namespace Hooks {
 
     void InstallLate() {
 
-        DynamicLC::InstallLate();
+        
 
     }
 }

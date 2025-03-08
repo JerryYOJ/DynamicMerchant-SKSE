@@ -15,7 +15,6 @@ void DynamicLC::Install()
 	auto& t = SKSE::GetTrampoline();
 	_CalculateCurrentFormList = t.write_call<5>(hookPoint.address(), CalculateCurrentFormList);
 
-
 	auto&& cfg = ConfigManager::getInstance();
 
 	cfg.HasKey("MinNumMult", "1.0");
@@ -28,52 +27,50 @@ void DynamicLC::Install()
 	MinLevelMult = std::stof(cfg.GetKey("MinLevelMult"));
 	MaxLevelMult = std::stof(cfg.GetKey("MaxLevelMult"));
 
-
 	logger::info("[LoadConfig] minn:{} maxn:{} minl:{} maxl:{}", MinNumMult, MaxNumMult, MinLevelMult, MaxLevelMult);
-}
-
-void DynamicLC::InstallLate()
-{
-	
 }
 
 void DynamicLC::CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t a_level, std::int16_t a_count, RE::BSScrapArray<RE::CALCED_OBJECT>& a_calcedObjects, std::uint32_t a_arg5, bool a_usePlayerLevel)
 {
-	struct rbpGetter : Xbyak::CodeGenerator {
-		rbpGetter() {
-			mov(rax, rbp);
+	struct infoGetter : Xbyak::CodeGenerator {
+		infoGetter() {
+			mov(rax, r14);
 			ret();
 		}
-	}RBP;
-	RBP.ready();
-	void* rbp = RBP.getCode<void* (*)()>()();
-	RE::InventoryChanges* caller_inv = *(RE::InventoryChanges**)((char*)rbp + 0x67);
+	}f;
+	f.ready();
+	RE::InventoryChanges* caller_inv = f.getCode<RE::InventoryChanges * (*)()>()();
+	//RE::InventoryChanges* caller_inv = *(RE::InventoryChanges**)((char*)rbp + 0x57 + 0x10);
 
-	using _GetFormEditorID = const char* (*)(std::uint32_t);
-	static auto tweaks = GetModuleHandle(L"po3_Tweaks");
-	static auto GetFormEditorID = reinterpret_cast<_GetFormEditorID>(GetProcAddress(tweaks, "GetFormEditorID"));
+	auto process = [&] {
+		using _GetFormEditorID = const char* (*)(std::uint32_t);
+		static auto tweaks = GetModuleHandle(L"po3_Tweaks");
+		static auto GetFormEditorID = reinterpret_cast<_GetFormEditorID>(GetProcAddress(tweaks, "GetFormEditorID"));
 
-	RE::FormID id = caller_inv->owner->formID;
-	if (caller_inv->owner->Is(RE::FormType::Reference)) id = caller_inv->owner->As<RE::TESObjectREFR>()->GetBaseObject()->formID;
+		RE::FormID id = caller_inv->owner->formID;
+		if (caller_inv->owner->Is(RE::FormType::Reference)) id = caller_inv->owner->As<RE::TESObjectREFR>()->GetBaseObject()->formID;
 
-	if (std::string(GetFormEditorID(id)).contains("Merchant")) {
-		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::uniform_int_distribution<int> numMult(MinNumMult, MaxNumMult);
-		std::uniform_real_distribution<float> levelMult(MinLevelMult, MaxLevelMult);
-		
-		int num = numMult(gen);
-		float level = levelMult(gen);
+		if (std::string(GetFormEditorID(id)).contains("Merchant")) {
+			std::random_device rd;
+			std::mt19937 gen(rd());
+			std::uniform_int_distribution<int> numMult(MinNumMult, MaxNumMult);
+			std::uniform_real_distribution<float> levelMult(MinLevelMult, MaxLevelMult);
+			
+			int num = numMult(gen);
+			float level = levelMult(gen);
 
-		levelMap[caller_inv->owner->formID] = level;
+			levelMap[caller_inv->owner->formID] = level;
 
-		if(a_usePlayerLevel) _CalculateCurrentFormList(thiz, RE::PlayerCharacter::GetSingleton()->GetLevel()* level, a_count* num, a_calcedObjects, a_arg5, false);
-		else _CalculateCurrentFormList(thiz, a_level * level, a_count * num, a_calcedObjects, a_arg5, false);
+			if(a_usePlayerLevel) _CalculateCurrentFormList(thiz, RE::PlayerCharacter::GetSingleton()->GetLevel()* level, a_count* num, a_calcedObjects, a_arg5, false);
+			else _CalculateCurrentFormList(thiz, a_level * level, a_count * num, a_calcedObjects, a_arg5, false);
 
-		logger::info("0x{:X}({}) Generated with level:{} count:{}", id, GetFormEditorID(id), a_level* level, a_count* num);
-		
-		return;
-	}
+			logger::info("0x{:X}({}) Generated with level:{} count:{}", id, GetFormEditorID(id), a_level* level, a_count* num);
+			
+			return;
+		}
 
-	return _CalculateCurrentFormList(thiz, a_level, a_count, a_calcedObjects, a_arg5, a_usePlayerLevel);
+		_CalculateCurrentFormList(thiz, a_level, a_count, a_calcedObjects, a_arg5, a_usePlayerLevel);
+	};
+
+	return process();
 }
