@@ -42,11 +42,13 @@ void DynamicLC::CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t
 
 		levelMap[caller_inv->owner->formID] = level;
 
-		_CalculateCurrentFormList(thiz, a_level* level, a_count* num, a_calcedObjects, a_arg5, false);
+		if(a_usePlayerLevel) _CalculateCurrentFormList(thiz, RE::PlayerCharacter::GetSingleton()->GetLevel()* level, a_count* num, a_calcedObjects, a_arg5, false);
+		else _CalculateCurrentFormList(thiz, a_level * level, a_count * num, a_calcedObjects, a_arg5, false);
 
-
-		logger::info("{}({}) Generated with level:{} count:{}", caller_inv->owner->formID, GetFormEditorID(caller_inv->owner->formID), a_level* level, a_count* num);
+		logger::info("{}({}) Generated with level:{} count:{}", caller_inv->owner->formID, caller_inv->owner->GetName(), a_level* level, a_count* num);
+		
+		return;
 	}
 
-	return;
+	return _CalculateCurrentFormList(thiz, a_level, a_count, a_calcedObjects, a_arg5, a_usePlayerLevel);
 }
