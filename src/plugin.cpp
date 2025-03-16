@@ -1,7 +1,6 @@
 #include <spdlog/sinks/basic_file_sink.h>
 
 #include "hooks/hooks.h"
-#include "scaleform/scaleform.h" // Uses classes from hooks.h
 
 void InitializeLog() {
     auto logsFolder = SKSE::log::log_directory();
@@ -12,7 +11,7 @@ void InitializeLog() {
     auto loggerPtr = std::make_shared<spdlog::logger>("log", std::move(fileLoggerPtr));
     spdlog::set_default_logger(std::move(loggerPtr));
     spdlog::set_level(spdlog::level::debug);
-    spdlog::flush_on(spdlog::level::trace);
+    spdlog::flush_on(spdlog::level::debug);
 }
 
 SKSEPluginLoad(const SKSE::LoadInterface *skse) {
@@ -23,7 +22,6 @@ SKSEPluginLoad(const SKSE::LoadInterface *skse) {
     SKSE::AllocTrampoline(1 << 7);
 
     Hooks::Install();
-    Scaleform::Install();
 
     SKSE::GetMessagingInterface()->RegisterListener([](SKSE::MessagingInterface::Message* message) {
         if (message->type == SKSE::MessagingInterface::kDataLoaded) {

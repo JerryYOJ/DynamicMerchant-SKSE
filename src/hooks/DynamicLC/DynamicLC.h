@@ -2,10 +2,8 @@ class DynamicLC {
 
 public:
     static void Install();
-
-    static std::unordered_map<RE::FormID, float>levelMap;
 protected:
-    static void CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t a_level, std::int16_t a_count, RE::BSScrapArray<RE::CALCED_OBJECT>& a_calcedObjects, std::uint32_t a_arg5, bool a_usePlayerLevel);
+    static void CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t a_level, std::int16_t a_count, RE::BSScrapArray<RE::CALCED_OBJECT>& a_calcedObjects, RE::InventoryChanges* caller_inv, bool a_usePlayerLevel);
 
 private:
 

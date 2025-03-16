@@ -5,15 +5,42 @@
 #include <xbyak.h>
 #include <random>
 
-std::unordered_map<RE::FormID, float> DynamicLC::levelMap;
-
 static float MinNumMult = 0, MaxNumMult = 0, MinLevelMult = 0, MaxLevelMult = 0;
 
 void DynamicLC::Install()
 {
-	REL::Relocation<std::uintptr_t> hookPoint{ RELOCATION_ID(15889, 16129), 0x217 };
+	struct trampolineAE : Xbyak::CodeGenerator {
+		trampolineAE(){
+			mov(ptr[rsp + 0x28], r14);
+			mov(r11, (uintptr_t)CalculateCurrentFormList);
+			jmp(r11);
+		}
+	};
+	struct trampolineSE : Xbyak::CodeGenerator {
+		trampolineSE() {
+			mov(ptr[rsp + 0x28], r15);
+			mov(r11, (uintptr_t)CalculateCurrentFormList);
+			jmp(r11);
+		}
+	};
+
 	auto& t = SKSE::GetTrampoline();
-	_CalculateCurrentFormList = t.write_call<5>(hookPoint.address(), CalculateCurrentFormList);
+
+	auto code = [&] {
+		if (REL::Module::IsAE()) {
+			trampolineAE code;
+			return t.allocate(code);
+		}
+		else if (REL::Module::IsSE()) {
+			trampolineSE code;
+			return t.allocate(code);
+		}
+		return (void*)nullptr;
+	};
+
+	REL::Relocation<std::uintptr_t> hookPoint{ RELOCATION_ID(15889, 16129), REL::VariantOffset(0x1C1, 0x217, 0x0) };
+	
+	_CalculateCurrentFormList = t.write_call<5>(hookPoint.address(), code());
 
 	auto&& cfg = ConfigManager::getInstance();
 
@@ -30,18 +57,8 @@ void DynamicLC::Install()
 	logger::info("[LoadConfig] minn:{} maxn:{} minl:{} maxl:{}", MinNumMult, MaxNumMult, MinLevelMult, MaxLevelMult);
 }
 
-void DynamicLC::CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t a_level, std::int16_t a_count, RE::BSScrapArray<RE::CALCED_OBJECT>& a_calcedObjects, std::uint32_t a_arg5, bool a_usePlayerLevel)
+void DynamicLC::CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t a_level, std::int16_t a_count, RE::BSScrapArray<RE::CALCED_OBJECT>& a_calcedObjects, RE::InventoryChanges* caller_inv, bool a_usePlayerLevel)
 {
-	struct infoGetter : Xbyak::CodeGenerator {
-		infoGetter() {
-			mov(rax, r14);
-			ret();
-		}
-	}f;
-	f.ready();
-	RE::InventoryChanges* caller_inv = f.getCode<RE::InventoryChanges * (*)()>()();
-	//RE::InventoryChanges* caller_inv = *(RE::InventoryChanges**)((char*)rbp + 0x57 + 0x10);
-
 	auto process = [&] {
 		using _GetFormEditorID = const char* (*)(std::uint32_t);
 		static auto tweaks = GetModuleHandle(L"po3_Tweaks");
@@ -57,20 +74,39 @@ void DynamicLC::CalculateCurrentFormList(RE::TESLeveledList* thiz, std::uint16_t
 			std::uniform_real_distribution<float> levelMult(MinLevelMult, MaxLevelMult);
 			
 			int num = numMult(gen);
-			float level = levelMult(gen);
+			float lvl = levelMult(gen);
 
-			levelMap[caller_inv->owner->formID] = level;
+			uint16_t level = a_usePlayerLevel ? RE::PlayerCharacter::GetSingleton()->GetLevel() * lvl : a_level * lvl;
 
-			if(a_usePlayerLevel) _CalculateCurrentFormList(thiz, RE::PlayerCharacter::GetSingleton()->GetLevel()* level, a_count* num, a_calcedObjects, a_arg5, false);
-			else _CalculateCurrentFormList(thiz, a_level * level, a_count * num, a_calcedObjects, a_arg5, false);
+			_CalculateCurrentFormList(thiz, level, a_count * num, a_calcedObjects, nullptr, false);
 
-			logger::info("0x{:X}({}) Generated with level:{} count:{}", id, GetFormEditorID(id), a_level* level, a_count* num);
+			logger::info("0x{:X}({}) Generated with level:{} count:{}*{}", id, GetFormEditorID(id), level, a_count, num);
 			
 			return;
 		}
 
-		_CalculateCurrentFormList(thiz, a_level, a_count, a_calcedObjects, a_arg5, a_usePlayerLevel);
+		_CalculateCurrentFormList(thiz, a_level, a_count, a_calcedObjects, nullptr, a_usePlayerLevel);
 	};
 
 	return process();
+}
+
+
+
+extern "C" __declspec(dllexport) float MerchantPriceCallback(RE::Actor*, RE::InventoryEntryData* objDesc, uint16_t a_level, RE::GFxValue& a_updateObj, bool is_buying) {
+	if (is_buying) {
+		uint16_t PCL = RE::PlayerCharacter::GetSingleton()->GetLevel();
+		if (a_level > PCL) {
+			RE::GFxValue n(RE::GFxValue::ValueType::kString);
+			a_updateObj.GetMember("name", &n);
+			std::string name = n.GetString();
+			name += std::format(" (LVL:{})", a_level);
+			n.SetString(name);
+			a_updateObj.SetMember("name", n);  //Change names to include level info
+
+			return (float)a_level / (float)PCL;
+		}
+	}
+	
+	return 1.0f;
 }
