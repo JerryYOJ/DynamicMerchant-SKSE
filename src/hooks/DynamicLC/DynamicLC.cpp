@@ -109,7 +109,7 @@ extern "C" __declspec(dllexport) float MerchantPriceCallback(RE::Actor* trader, 
 			n.SetString(name);
 			a_updateObj.SetMember("name", n);  //Change names to include level info
 
-			return (float)a_level / (float)PCL;
+			return ((float)a_level / (float)PCL) * PriceMult;
 		}
 	}
 	
