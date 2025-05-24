@@ -5,7 +5,7 @@
 #include <xbyak.h>
 #include <random>
 
-static float MinNumMult = 0, MaxNumMult = 0, MinLevelMult = 0, MaxLevelMult = 0, PriceMult = 0;
+extern "C" __declspec(dllexport) float MinNumMult = 0, MaxNumMult = 0, MinLevelMult = 0, MaxLevelMult = 0, PriceMult = 0;
 
 void DynamicLC::Install()
 {
